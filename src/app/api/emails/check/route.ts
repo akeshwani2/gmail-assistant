@@ -7,6 +7,40 @@ import { suggestLabel, createLabel } from '../utils';
 type GmailMessage = gmail_v1.Schema$Message;
 type MessageAdded = gmail_v1.Schema$HistoryMessageAdded;
 
+function extractEmailContent(message: any): string {
+  let content = '';
+
+  // Function to decode base64 content
+  const decodeBase64 = (data: string) => {
+    return Buffer.from(data.replace(/-/g, '+').replace(/_/g, '/'), 'base64').toString('utf-8');
+  };
+
+  // Function to extract text from parts recursively
+  const extractFromParts = (parts: any[]) => {
+    for (const part of parts) {
+      if (part.mimeType === 'text/plain') {
+        const body = part.body.data;
+        if (body) {
+          content += decodeBase64(body) + ' ';
+        }
+      } else if (part.parts) {
+        extractFromParts(part.parts);
+      }
+    }
+  };
+
+  // Handle different message structures
+  if (message.payload) {
+    if (message.payload.body?.data) {
+      content = decodeBase64(message.payload.body.data);
+    } else if (message.payload.parts) {
+      extractFromParts(message.payload.parts);
+    }
+  }
+
+  return content.trim();
+}
+
 export async function POST(request: NextRequest) {
   try {
     const { lastHistoryId } = await request.json();
@@ -59,7 +93,7 @@ export async function POST(request: NextRequest) {
       const response = await gmail.users.messages.list({
         userId: 'me',
         maxResults: 10,
-        q: 'is:unread has:nouserlabels'  // Only gets emails with no user labels
+        q: 'is:unread has:nouserlabels'  // Only process emails from last 2 days
       });
       messages = response.data.messages || [];
       console.log('Found unprocessed messages:', messages.map(m => m.id)); // Log message IDs
@@ -87,19 +121,17 @@ export async function POST(request: NextRequest) {
         });
 
         const headers = email.data.payload?.headers;
-        const subject = headers?.find(h => h.name === 'Subject')?.value || 'No Subject';
-        const from = headers?.find(h => h.name === 'From')?.value || 'Unknown Sender';
-        const snippet = email.data.snippet || '';
+        const subject = headers?.find(h => h.name === 'Subject')?.value || '';
+        const from = headers?.find(h => h.name === 'From')?.value || '';
+        const emailContent = extractEmailContent(email.data.payload);
 
-        console.log(`Processing email: "${subject}" from ${from}`);
+        const emailContext = `
+Subject: ${subject}
+From: ${from}
+Content: ${emailContent}
+`;
 
-        const emailContent = `
-          From: ${from}
-          Subject: ${subject}
-          Content: ${snippet}
-        `;
-
-        const suggestedLabel = await suggestLabel(emailContent);
+        const suggestedLabel = await suggestLabel(emailContext);
         console.log(`AI suggested label: ${suggestedLabel}`);
 
         const labelId = await createLabel(gmail, suggestedLabel);
@@ -123,6 +155,9 @@ export async function POST(request: NextRequest) {
 
         // After processing each message
         console.log(`Processed message ${message.id} with label: ${suggestedLabel}`);
+
+        // After label is suggested
+        console.log(`Email "${subject}" from ${from} labeled as: ${suggestedLabel}`);
       } catch (error) {
         console.error('Error processing message:', error);
       }

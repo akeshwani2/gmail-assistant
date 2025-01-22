@@ -10,17 +10,31 @@ export async function suggestLabel(emailContent: string): Promise<string> {
     messages: [
       {
         role: "system",
-        content: "You are an email categorizer. Based on the email content, suggest ONE appropriate label from the following categories ONLY: Personal, Work, School, Finance, Shopping, Travel, Social, Newsletter, Promotion, Important, Other. Respond with JUST the category name, nothing else."
+        content: `You are an email categorizer. Based on the email content, suggest ONE appropriate label from these categories:
+- Work (for job-related, professional, or business emails)
+- School (for education-related content)
+- Finance (for banking, payments, investments)
+- Shopping (for purchases, orders, receipts)
+- Travel (for trips, bookings, itineraries)
+- Social (for personal communications, events, social activities)
+- Newsletter (for subscriptions, updates, digests)
+- Promotion (for marketing, sales, offers)
+- Personal (for private matters)
+- Important (for urgent or critical matters)
+- Miscellaneous (only if no Miscellaneous category clearly fits)
+
+Respond with JUST the category name, nothing else. Be decisive and avoid using "Miscellaneous" unless absolutely necessary.`
       },
       {
         role: "user",
         content: emailContent
       }
     ],
-    temperature: 0.3,
+    temperature: 0.1,
+    max_tokens: 10,
   });
 
-  return completion.choices[0].message.content?.trim() || 'Other';
+  return completion.choices[0].message.content?.trim() || 'Miscellaneous';
 }
 
 export async function createLabel(gmail: any, labelName: string) {
