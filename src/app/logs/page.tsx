@@ -4,20 +4,17 @@ import { useState, useEffect } from 'react';
 import Sidebar from '../components/Sidebar';
 
 export default function AutomationsPage() {
-  const [isEnabled, setIsEnabled] = useState(() => {
-    if (typeof window !== 'undefined') {
-      return localStorage.getItem('autoLabel_enabled') === 'true';
-    }
-    return true;
-  });
+  const [isEnabled, setIsEnabled] = useState(false);
   const [lastCheck, setLastCheck] = useState<Date | null>(null);
   const [lastHistoryId, setLastHistoryId] = useState<string | null>(null);
-  const [processedCount, setProcessedCount] = useState(() => {
-    if (typeof window !== 'undefined') {
-      return parseInt(localStorage.getItem('processedEmailCount') || '0');
+  const [processedCount, setProcessedCount] = useState(0);
+
+  useEffect(() => {
+    const savedEnabled = localStorage.getItem('autoLabel_enabled');
+    if (savedEnabled !== null) {
+      setIsEnabled(savedEnabled === 'true');
     }
-    return 0;
-  });
+  }, []);
 
   useEffect(() => {
     localStorage.setItem('autoLabel_enabled', isEnabled.toString());
