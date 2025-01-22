@@ -58,11 +58,11 @@ export async function POST(request: NextRequest) {
       console.log('Falling back to recent messages');
       const response = await gmail.users.messages.list({
         userId: 'me',
-        maxResults: 50,
-        q: 'is:unread -label:* -category:promotions has:nouserlabels'  // Added has:nouserlabels
+        maxResults: 10,
+        q: 'is:unread has:nouserlabels'  // Only gets emails with no user labels
       });
       messages = response.data.messages || [];
-      console.log('Found messages to process:', messages.length);
+      console.log('Found unprocessed messages:', messages.map(m => m.id)); // Log message IDs
 
       // If no messages need processing, return early
       if (messages.length === 0) {
@@ -120,6 +120,9 @@ export async function POST(request: NextRequest) {
           label: suggestedLabel,
           timestamp: new Date().toLocaleString()
         });
+
+        // After processing each message
+        console.log(`Processed message ${message.id} with label: ${suggestedLabel}`);
       } catch (error) {
         console.error('Error processing message:', error);
       }

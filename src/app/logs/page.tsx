@@ -12,11 +12,20 @@ export default function AutomationsPage() {
   });
   const [lastCheck, setLastCheck] = useState<Date | null>(null);
   const [lastHistoryId, setLastHistoryId] = useState<string | null>(null);
-  const [processedCount, setProcessedCount] = useState(0);
+  const [processedCount, setProcessedCount] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return parseInt(localStorage.getItem('processedEmailCount') || '0');
+    }
+    return 0;
+  });
 
   useEffect(() => {
     localStorage.setItem('autoLabel_enabled', isEnabled.toString());
   }, [isEnabled]);
+
+  useEffect(() => {
+    localStorage.setItem('processedEmailCount', processedCount.toString());
+  }, [processedCount]);
 
   useEffect(() => {
     if (!isEnabled) {
@@ -54,7 +63,7 @@ export default function AutomationsPage() {
         }
 
         if (data.processedEmails && data.processedEmails.length > 0) {
-          setProcessedCount(prev => prev + data.processedEmails.length);
+          setProcessedCount(data.processedEmails.length);
         }
       } catch (error) {
         console.error('Error checking new emails:', error);
