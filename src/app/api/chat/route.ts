@@ -23,10 +23,31 @@ export async function POST(request: NextRequest) {
     oauth2Client.setCredentials({ access_token: accessToken });
     const gmail = google.gmail({ version: "v1", auth: oauth2Client });
 
+    // Verify token validity before proceeding
+    try {
+      // Test the token with a lightweight API call
+      await gmail.users.getProfile({ userId: 'me' });
+    } catch (error: any) {
+      if (error.status === 401) {
+        return NextResponse.json(
+          { error: "Invalid or expired access token" },
+          { status: 401 }
+        );
+      }
+      throw error; // Re-throw other errors
+    }
+
     // Get recent emails for context
     const emails = await gmail.users.messages.list({
       userId: "me",
+      maxResults: 10, // Limit the number of emails to process
     });
+
+    if (!emails.data.messages || emails.data.messages.length === 0) {
+      return NextResponse.json({
+        response: "No recent emails found to analyze.",
+      });
+    }
 
     // Get full email details
     const emailDetails = await Promise.all(

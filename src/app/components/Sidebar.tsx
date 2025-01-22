@@ -9,10 +9,12 @@ export default function Sidebar() {
 
     const menuItems = [
       { icon: HomeIcon, label: 'Home', path: '/' },
-      { icon: WorkflowIcon, label: 'Integrations', path: '/integrations' },
       { icon: BrainCog, label: 'Automations', path: '/automations' },
       { icon: MessageCirclePlus, label: 'Chat', path: '/chat' },
-      { icon: SettingsIcon, label: 'Settings', path: '/settings' }
+      { icon: WorkflowIcon, label: 'Integrations', path: '/integrations' },
+      { icon: MessageCirclePlus, label: 'Logs', path: '/logs' },
+      { icon: SettingsIcon, label: 'Settings', path: '/settings' },
+
     ];
 
     return (

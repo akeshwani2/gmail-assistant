@@ -60,6 +60,13 @@ export default function ChatInterface() {
         body: JSON.stringify({ message: input }),
       });
       
+      if (response.status === 401) {
+        // Clear the invalid token
+        localStorage.removeItem('gmail_access_token');
+        setAccessToken(null);
+        return;
+      }
+
       const data = await response.json();
       
       const assistantMessage: Message = {

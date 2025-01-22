@@ -1,17 +1,48 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useGoogleLogin } from '@react-oauth/google';
 
 export default function EmailDashboard() {
   const [isConnected, setIsConnected] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [lastHistoryId, setLastHistoryId] = useState<string | null>(null);
+  const [accessToken, setAccessToken] = useState<string | null>(null);
+
+  // Poll for new emails every 30 seconds
+  useEffect(() => {
+    if (!isConnected || !lastHistoryId || !accessToken) return;
+
+    const checkEmails = async () => {
+      try {
+        const response = await fetch('/api/emails/check', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ lastHistoryId })
+        });
+
+        if (!response.ok) throw new Error('Failed to check emails');
+
+        const data = await response.json();
+        setLastHistoryId(data.newHistoryId);
+      } catch (error) {
+        console.error('Error checking emails:', error);
+      }
+    };
+
+    const interval = setInterval(checkEmails, 30000);
+    return () => clearInterval(interval);
+  }, [isConnected, lastHistoryId, accessToken]);
 
   const login = useGoogleLogin({
     onSuccess: async (tokenResponse) => {
       setLoading(true);
       try {
+        setAccessToken(tokenResponse.access_token);
         const response = await fetch('/api/emails/watch', {
           method: 'POST',
           headers: {
@@ -21,6 +52,8 @@ export default function EmailDashboard() {
         
         if (!response.ok) throw new Error('Failed to connect to Gmail');
         
+        const data = await response.json();
+        setLastHistoryId(data.historyId);
         setIsConnected(true);
       } catch (error) {
         console.error('Error:', error);
