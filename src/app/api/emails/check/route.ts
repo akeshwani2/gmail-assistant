@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { google } from 'googleapis';
 import { gmail_v1 } from 'googleapis';
-import { suggestLabel, createLabel } from '../utils';
+import { suggestLabel, createLabel, processEmail } from '../utils';
 
 // Update interface to match Gmail API types
 type GmailMessage = gmail_v1.Schema$Message;
@@ -93,7 +93,7 @@ export async function POST(request: NextRequest) {
       const response = await gmail.users.messages.list({
         userId: 'me',
         maxResults: 10,
-        q: 'is:unread has:nouserlabels'  // Only process emails from last 2 days
+        q: 'is:unread has:nouserlabels newer_than:2d'  // Only process emails from last 2 days
       });
       messages = response.data.messages || [];
       console.log('Found unprocessed messages:', messages.map(m => m.id)); // Log message IDs
@@ -131,26 +131,26 @@ From: ${from}
 Content: ${emailContent}
 `;
 
+        // Process the email content and suggest a label
         const suggestedLabel = await suggestLabel(emailContext);
-        console.log(`AI suggested label: ${suggestedLabel}`);
+        
+        // Create and apply the label
+        if (suggestedLabel) {
+          const labelId = await createLabel(gmail, suggestedLabel);
+          await gmail.users.messages.modify({
+            userId: 'me',
+            id: message.id!,
+            requestBody: {
+              addLabelIds: [labelId]
+            }
+          });
+        }
 
-        const labelId = await createLabel(gmail, suggestedLabel);
-        console.log(`Label ID: ${labelId}`);
-
-        await gmail.users.messages.modify({
-          userId: 'me',
-          id: message.id,
-          requestBody: {
-            addLabelIds: [labelId],
-            removeLabelIds: []
-          },
-        });
-
+        // Check if email should be flagged as important
+        await processEmail(gmail, message.id!);
         processedEmails.push({
-          subject,
-          from,
-          label: suggestedLabel,
-          timestamp: new Date().toLocaleString()
+          messageId: message.id,
+          appliedLabel: suggestedLabel
         });
 
         // After processing each message
@@ -159,7 +159,7 @@ Content: ${emailContent}
         // After label is suggested
         console.log(`Email "${subject}" from ${from} labeled as: ${suggestedLabel}`);
       } catch (error) {
-        console.error('Error processing message:', error);
+        console.error(`Error processing message ${message.id}:`, error);
       }
     }
 
